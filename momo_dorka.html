@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Dork Generator — Bug Bounty</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --red: #f78166;
+    --text: #e6edf3;
+    --muted: #8b949e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Tahoma, system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 1.7rem; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+  header p { color: var(--muted); font-size: 0.88rem; }
+
+  /* Scope Box */
+  .scope-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+  .scope-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .scope-box-header label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+  .scope-count { font-size: 0.75rem; color: var(--muted); }
+  .scope-count span { color: var(--accent); font-weight: 700; }
+
+  .scope-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+
+  .scope-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .scope-num {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: monospace;
+    min-width: 22px;
+    text-align: center;
+  }
+  .scope-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Consolas', monospace;
+    font-size: 0.85rem;
+    padding: 7px 12px;
+    outline: none;
+    direction: ltr;
+    transition: border-color 0.2s;
+  }
+  .scope-row input:focus { border-color: var(--accent); }
+  .scope-row input.valid { border-color: var(--green); }
+
+  .remove-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--red);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    transition: background 0.15s;
+  }
+  .remove-btn:hover { background: #2a1515; }
+
+  .scope-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Paste area */
+  .paste-area {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+  .paste-area label { font-size: 0.82rem; color: var(--muted); font-weight: 600; display: block; margin-bottom: 8px; }
+  .paste-area textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Consolas', monospace;
+    font-size: 0.82rem;
+    padding: 10px 12px;
+    direction: ltr;
+    resize: vertical;
+    min-height: 90px;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 8px;
+  }
+  .paste-area textarea:focus { border-color: var(--accent); }
+
+  /* Query Cards */
+  .query-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .query-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .query-num { background: var(--accent); color: #000; font-size: 0.72rem; font-weight: 800; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .query-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+  .query-desc { color: var(--muted); font-size: 0.78rem; }
+  .query-body { padding: 14px 18px; }
+
+  .query-text {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 11px 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.74rem;
+    color: var(--accent);
+    word-break: break-all;
+    line-height: 1.7;
+    direction: ltr;
+    text-align: left;
+    margin-bottom: 12px;
+    white-space: pre-wrap;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  /* Multi-target per-scope buttons */
+  .scope-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .scope-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-family: monospace;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    text-decoration: none;
+  }
+  .scope-btn:hover { background: #1f3a5f; border-color: var(--accent); }
+  .scope-btn-label { font-size: 0.68rem; color: var(--muted); margin-bottom: 4px; }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .btn {
+    border: none;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn:hover { opacity: 0.82; }
+  .btn:active { transform: scale(0.97); }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-blue { background: var(--accent); color: #000; }
+  .btn-copy { background: var(--border); color: var(--text); }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-copied { background: var(--orange) !important; color: #000 !important; }
+  .btn-red { background: transparent; border: 1px solid var(--red); color: var(--red); }
+
+  /* Tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+  .tag { font-size: 0.67rem; padding: 2px 9px; border-radius: 20px; font-weight: 600; }
+  .tag-api  { background: #1f3a5f; color: #79c0ff; }
+  .tag-file { background: #2d1f3a; color: #d2a8ff; }
+  .tag-dir  { background: #1f3a29; color: #7ee787; }
+  .tag-dash { background: #3a2d1f; color: #ffa657; }
+
+  /* Summary */
+  .summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+  .summary h3 { font-size: 0.83rem; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: right; padding: 7px 10px; color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; font-weight: 700; color: var(--accent); }
+  .badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 2px 10px; font-size: 0.72rem; color: var(--green); font-weight: 700; }
+
+  .notice {
+    background: #1f2e1f;
+    border: 1px solid #2ea043;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.79rem;
+    color: #7ee787;
+    margin-top: 20px;
+    line-height: 1.6;
+  }
+  .notice strong { color: var(--green); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  .open-all-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔍 Google Dork Generator</h1>
+  <p>55 dork × عدد الـ targets — كل target يولّد 4 queries جاهزة للبحث</p>
+</header>
+
+<!-- Paste Bulk -->
+<div class="paste-area">
+  <label>📋 الصق قائمة الـ Scope (سطر لكل domain) — أو أضفهم يدوياً أدناه</label>
+  <textarea id="bulkPaste" placeholder="example.com&#10;api.target.com&#10;portal.company.org&#10;*.scope.net"></textarea>
+  <button class="btn btn-blue" onclick="importBulk()">⬇️ استيراد القائمة</button>
+</div>
+
+<!-- Scope Manager -->
+<div class="scope-box">
+  <div class="scope-box-header">
+    <label>🎯 قائمة الـ Targets</label>
+    <span class="scope-count">الإجمالي: <span id="scopeCountDisplay">1</span> target</span>
+  </div>
+  <div class="scope-list" id="scopeList"></div>
+  <div class="scope-actions">
+    <button class="btn btn-ghost" onclick="addScope()">＋ إضافة target</button>
+    <button class="btn btn-red" onclick="clearScopes()">🗑 مسح الكل</button>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="summary">
+  <h3>📋 ملخص — 55 Dork × عدد الـ Targets</h3>
+  <table>
+    <tr><th>Query</th><th>الفئة</th><th>Dorks</th></tr>
+    <tr><td>Query 1</td><td>API, Admin &amp; Panels</td><td><span class="badge">15</span></td></tr>
+    <tr><td>Query 2</td><td>Files, Configs &amp; Secrets</td><td><span class="badge">15</span></td></tr>
+    <tr><td>Query 3</td><td>Directory Listing &amp; Fingerprinting</td><td><span class="badge">15</span></td></tr>
+    <tr><td>Query 4</td><td>Dev/Staging &amp; Dashboards</td><td><span class="badge">10</span></td></tr>
+    <tr><td>المجموع</td><td></td><td><span class="badge">55</span></td></tr>
+  </table>
+</div>
+
+<!-- Query Cards -->
+<div id="queryCards"></div>
+
+<div class="notice">
+  <strong>⚠️ Responsible Disclosure:</strong> هذه الـ dorks للـ passive reconnaissance فقط ضمن برامج Bug Bounty المصرح بها.
+  تأكد أن الـ target in-scope قبل أي اختبار. أرسل الـ findings عبر HackerOne / Bugcrowd.
+</div>
+
+<script>
+const TEMPLATES = [
+  {
+    num: 1, title: 'API, Admin & Panels', count: 15,
+    tagClass: 'tag-api',
+    tags: ['Swagger','GraphQL','OpenAPI','phpMyAdmin','Admin Panel','cPanel'],
+    tpl: `site:{d} (swagger.html OR swagger-ui.html OR api-docs OR inurl:/api/v1 OR inurl:/api/v2 OR inurl:graphql OR inurl:redoc OR openapi.json OR openapi.yaml OR phpMyAdmin OR wp-login.php OR inurl:/admin OR inurl:cpanel OR inurl:webmail OR intitle:"admin panel")`
+  },
+  {
+    num: 2, title: 'Files, Configs & Secrets', count: 15,
+    tagClass: 'tag-file',
+    tags: ['.env','config files','DB_PASSWORD','API Keys','Private Keys','filetype:log/sql'],
+    tpl: `site:{d} (intitle:"dashboard" inurl:admin OR .env OR config.json OR config.yml OR config.php OR filetype:log OR filetype:sql OR filetype:bak OR filetype:conf OR "DB_PASSWORD" OR "AWS_SECRET" OR "api_key" OR "private_key" OR "BEGIN RSA PRIVATE KEY" OR "secret_key")`
+  },
+  {
+    num: 3, title: 'Directory Listing & Fingerprinting', count: 15,
+    tagClass: 'tag-dir',
+    tags: ['index of /','  .git','.htaccess','.svn','Login Pages','Auth Endpoints'],
+    tpl: `site:{d} ("index of /" OR "index of" /backup OR "index of" /uploads OR "parent directory" OR inurl:".git" OR inurl:".DS_Store" OR inurl:".htaccess" OR inurl:".svn" OR inurl:login OR inurl:signin OR inurl:auth OR inurl:sso OR inurl:oauth OR inurl:dev OR inurl:staging)`
+  },
+  {
+    num: 4, title: 'Dev/Staging & Dashboards', count: 10,
+    tagClass: 'tag-dash',
+    tags: ['Grafana','Kibana','Jenkins','phpinfo','Actuator','/health /metrics'],
+    tpl: `site:{d} (inurl:test OR inurl:sandbox OR inurl:beta OR intitle:"grafana" OR intitle:"kibana" OR intitle:"jenkins" OR intitle:"phpinfo()" OR inurl:actuator OR inurl:/health OR inurl:/metrics)`
+  }
+];
+
+let scopes = Array(20).fill('');
+
+function getScopes() {
+  return scopes.map(s => s.trim().replace(/^https?:\/\//, '').replace(/\/$/, '')).filter(s => s.length > 0);
+}
+
+function renderScopes() {
+  const list = document.getElementById('scopeList');
+  list.innerHTML = scopes.map((s, i) => `
+    <div class="scope-row">
+      <span class="scope-num">${i + 1}</span>
+      <input type="text" value="${escAttr(s)}" placeholder="example.com"
+        oninput="scopes[${i}] = this.value; this.classList.toggle('valid', this.value.trim().length > 3); renderQueries();"
+        dir="ltr" class="${s.trim().length > 3 ? 'valid' : ''}">
+      ${scopes.length > 1 ? `<button class="remove-btn" onclick="removeScope(${i})">✕</button>` : ''}
+    </div>
+  `).join('');
+  document.getElementById('scopeCountDisplay').textContent = getScopes().length;
+  renderQueries();
+}
+
+function addScope() {
+  scopes.push('');
+  renderScopes();
+  // focus last input
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('.scope-row input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  }, 50);
+}
+
+function removeScope(i) {
+  scopes.splice(i, 1);
+  if (scopes.length === 0) scopes = Array(20).fill('');
+  renderScopes();
+}
+
+function clearScopes() {
+  scopes = Array(20).fill('');
+  renderScopes();
+}
+
+function importBulk() {
+  const raw = document.getElementById('bulkPaste').value.trim();
+  if (!raw) return;
+  const lines = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+  if (!lines.length) return;
+  scopes = lines;
+  document.getElementById('bulkPaste').value = '';
+  renderScopes();
+}
+
+// Build one combined query: (site:t1 OR site:t2 OR ...) (dorks)
+function buildCombinedQuery(tplIdx, targets) {
+  const t = TEMPLATES[tplIdx];
+  // Extract the dork part (everything after "site:{d} ")
+  const dorkPart = t.tpl.replace(/^site:\{d\} /, '');
+  if (targets.length === 1) {
+    return `site:${targets[0]} ${dorkPart}`;
+  }
+  const sitePart = '(' + targets.map(d => `site:${d}`).join(' OR ') + ')';
+  return `${sitePart} ${dorkPart}`;
+}
+
+function renderQueries() {
+  const targets = getScopes();
+  const container = document.getElementById('queryCards');
+
+  if (!targets.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px;font-size:0.85rem;">أدخل target واحد على الأقل لتوليد الـ queries</div>';
+    return;
+  }
+
+  container.innerHTML = TEMPLATES.map((t, tIdx) => {
+    const tagsHtml = t.tags.map(tag => `<span class="tag ${t.tagClass}">${tag.trim()}</span>`).join('');
+    const query = buildCombinedQuery(tIdx, targets);
+    const url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+
+    const targetBadges = targets.map(d =>
+      `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:0.68rem;font-family:monospace;color:var(--accent);">${escHtml(d)}</span>`
+    ).join('');
+
+    return `
+      <div class="query-card">
+        <div class="query-header">
+          <span class="query-num">Query ${t.num}</span>
+          <span class="query-title">${t.title}</span>
+          <span class="query-desc">${t.count} dorks — ${targets.length} target${targets.length > 1 ? 's' : ''}</span>
+        </div>
+        <div class="query-body">
+          <div class="tags">${tagsHtml}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;">${targetBadges}</div>
+          <div class="query-text" id="q${t.num}_combined">${escHtml(query)}</div>
+          <div class="btn-row">
+            <a href="${escAttr(url)}" target="_blank" rel="noopener" class="btn btn-green">🔍 افتح في Google</a>
+            <button class="btn btn-copy" onclick="copyEl('q${t.num}_combined', this)">📋 نسخ</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openAll(tplIdx) {
+  const targets = getScopes();
+  const query = buildCombinedQuery(tplIdx, targets);
+  window.open('https://www.google.com/search?q=' + encodeURIComponent(query), '_blank');
+}
+
+function copyAll(tplIdx) {
+  const targets = getScopes();
+  const query = buildCombinedQuery(tplIdx, targets);
+  navigator.clipboard.writeText(query).then(() => alert('✅ تم النسخ!'));
+}
+
+function copyEl(elId, btn) {
+  const text = document.getElementById(elId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ تم';
+    btn.classList.add('btn-copied');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('btn-copied'); }, 1500);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Init
+renderScopes();
+</script>
+</body>
+</html>
